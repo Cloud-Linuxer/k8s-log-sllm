@@ -1,7 +1,7 @@
 # Data files (too large)
-data/large_logs.txt
-data/large_logs.labeled.csv
-data/*.csv
+data/raw/large_logs.txt
+data/processed/*.csv
+data/splits/*.csv
 
 # Model files (too large)
 models/*/model.onnx
