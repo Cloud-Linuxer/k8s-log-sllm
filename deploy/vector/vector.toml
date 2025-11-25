@@ -1,0 +1,131 @@
+# Vector configuration for log risk scoring pipeline
+# Collects logs → Scores via API → Routes by risk level
+
+# ============================================================
+# SOURCES - Log collection
+# ============================================================
+
+# Kubernetes logs (from files)
+[sources.kubernetes_logs]
+type = "kubernetes_logs"
+auto_partial_merge = true
+ignore_older_secs = 600
+
+# Docker logs
+[sources.docker_logs]
+type = "docker_logs"
+docker_host = "/var/run/docker.sock"
+
+# Syslog (RFC 5424)
+[sources.syslog]
+type = "syslog"
+address = "0.0.0.0:514"
+mode = "udp"
+
+# File-based logs (generic)
+[sources.file_logs]
+type = "file"
+include = ["/var/log/**/*.log"]
+ignore_older_secs = 86400
+
+# ============================================================
+# TRANSFORMS - Risk scoring via API
+# ============================================================
+
+# Merge all sources
+[transforms.merged_logs]
+type = "remap"
+inputs = ["kubernetes_logs", "docker_logs", "syslog", "file_logs"]
+source = '''
+# Normalize message field
+.message = .message ?? .msg ?? to_string(.)
+.source_type = .source_type ?? "unknown"
+.timestamp = .timestamp ?? now()
+'''
+
+# Score logs via risk scoring API
+[transforms.risk_scored]
+type = "remap"
+inputs = ["merged_logs"]
+source = '''
+# Call risk scoring API
+response, err = http_post(
+  "http://log-scorer:8000/predict",
+  headers: {"Content-Type": "application/json"},
+  body: encode_json({"log": .message, "preprocess": true})
+)
+
+if err != null {
+  .risk_label = -1
+  .risk_score = -1.0
+  .risk_level = "unknown"
+  .scoring_error = to_string(err)
+} else {
+  result = parse_json!(response.body)
+  .risk_label = result.risk_label
+  .risk_score = result.risk_score
+  .risk_level = result.level
+}
+'''
+
+# Route by risk level
+[transforms.risk_router]
+type = "route"
+inputs = ["risk_scored"]
+[transforms.risk_router.route]
+high_risk = '.risk_label != null && .risk_label >= 7'
+medium_risk = '.risk_label != null && .risk_label >= 4 && .risk_label < 7'
+low_risk = '.risk_label != null && .risk_label >= 0 && .risk_label < 4'
+error = '.risk_label == null || .risk_label < 0'
+
+# Enrich high-risk logs
+[transforms.high_risk_enriched]
+type = "remap"
+inputs = ["risk_router.high_risk"]
+source = '''
+.alert_priority = if .risk_label >= 9 { "critical" } else { "high" }
+.alert_title = "High Risk Log Detected: " + (.risk_level ?? "unknown")
+.alert_summary = slice!(.message, 0, 200)
+'''
+
+# ============================================================
+# SINKS - Output destinations
+# ============================================================
+
+# All logs to Elasticsearch (with risk scores)
+[sinks.elasticsearch_all]
+type = "elasticsearch"
+inputs = ["risk_scored"]
+endpoints = ["http://elasticsearch:9200"]
+index = "logs-scored-%Y.%m.%d"
+bulk.action = "index"
+
+# High risk logs to separate index
+[sinks.elasticsearch_alerts]
+type = "elasticsearch"
+inputs = ["high_risk_enriched"]
+endpoints = ["http://elasticsearch:9200"]
+index = "logs-alerts-%Y.%m.%d"
+bulk.action = "index"
+
+# Webhook for high-risk alerts (Slack, PagerDuty, etc.)
+[sinks.webhook_alerts]
+type = "http"
+inputs = ["high_risk_enriched"]
+uri = "${ALERT_WEBHOOK_URL:-http://localhost:9999/webhook}"
+method = "post"
+encoding.codec = "json"
+[sinks.webhook_alerts.request]
+headers.Content-Type = "application/json"
+
+# Console output for debugging
+[sinks.console_debug]
+type = "console"
+inputs = ["high_risk_enriched"]
+encoding.codec = "json"
+
+# Prometheus metrics
+[sinks.prometheus]
+type = "prometheus_exporter"
+inputs = ["risk_scored"]
+address = "0.0.0.0:9598"

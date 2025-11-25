@@ -1,0 +1,90 @@
+# Simplified Vector config for testing
+# stdin → risk scoring → console output
+
+[sources.stdin]
+type = "stdin"
+
+[transforms.parse_line]
+type = "remap"
+inputs = ["stdin"]
+source = '''
+.message = to_string(.)
+.timestamp = now()
+'''
+
+# Score via API (using lua for http call simulation)
+# Note: In production, use the full vector.toml with http transform
+[transforms.add_fields]
+type = "remap"
+inputs = ["parse_line"]
+source = '''
+# Simple keyword-based scoring for demo (API call in full config)
+msg = downcase(.message)
+
+# Determine risk based on keywords
+.risk_label = 2
+.risk_level = "info"
+
+if contains(msg, "trace") {
+  .risk_label = 0
+  .risk_level = "trace"
+} else if contains(msg, "debug") {
+  .risk_label = 1
+  .risk_level = "debug"
+} else if contains(msg, "info") {
+  .risk_label = 2
+  .risk_level = "info"
+} else if contains(msg, "warn") {
+  .risk_label = 4
+  .risk_level = "warning"
+} else if contains(msg, "error") {
+  .risk_label = 6
+  .risk_level = "error"
+} else if contains(msg, "critical") || contains(msg, "fatal") || contains(msg, "panic") {
+  .risk_label = 9
+  .risk_level = "critical"
+}
+
+# Keyword bonuses
+if contains(msg, "kernel panic") || contains(msg, "oomkilled") {
+  .risk_label = 10
+  .risk_level = "emergency"
+}
+if contains(msg, "connection refused") || contains(msg, "timeout") {
+  .risk_label = .risk_label + 1
+}
+if contains(msg, "crashloopbackoff") || contains(msg, "imagepullbackoff") {
+  .risk_label = .risk_label + 2
+}
+
+# Clamp to 0-10
+if .risk_label > 10 { .risk_label = 10 }
+
+# Add alert flag
+.is_high_risk = .risk_label >= 7
+'''
+
+[transforms.route_by_risk]
+type = "route"
+inputs = ["add_fields"]
+[transforms.route_by_risk.route]
+high = '.is_high_risk == true'
+normal = '.is_high_risk == false'
+
+[transforms.format_alert]
+type = "remap"
+inputs = ["route_by_risk.high"]
+source = '''
+.alert = "🚨 HIGH RISK [" + to_string(.risk_label) + "] " + .risk_level
+'''
+
+[sinks.console_all]
+type = "console"
+inputs = ["add_fields"]
+encoding.codec = "json"
+
+[sinks.console_alerts]
+type = "console"
+inputs = ["format_alert"]
+encoding.codec = "text"
+encoding.text.field = "alert"

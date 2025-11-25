@@ -1,0 +1,120 @@
+version: '3.8'
+
+services:
+  # Log Risk Scorer API
+  log-scorer:
+    build: ..
+    container_name: log-scorer
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+        reservations:
+          memory: 1G
+    networks:
+      - logging
+
+  # Vector - Log aggregator and router
+  vector:
+    image: timberio/vector:0.34.1-debian
+    container_name: vector
+    volumes:
+      - ./vector/vector.toml:/etc/vector/vector.toml:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "514:514/udp"    # Syslog
+      - "9598:9598"      # Prometheus metrics
+    environment:
+      - VECTOR_CONFIG=/etc/vector/vector.toml
+      - ALERT_WEBHOOK_URL=${ALERT_WEBHOOK_URL:-http://webhook-receiver:9999/webhook}
+    depends_on:
+      log-scorer:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - logging
+
+  # Elasticsearch - Log storage
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9200/_cluster/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - logging
+
+  # Kibana - Log visualization
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - logging
+
+  # Webhook receiver (example - replace with Slack/PagerDuty)
+  webhook-receiver:
+    image: python:3.11-slim
+    container_name: webhook-receiver
+    command: >
+      python -c "
+      from http.server import HTTPServer, BaseHTTPRequestHandler
+      import json
+
+      class Handler(BaseHTTPRequestHandler):
+          def do_POST(self):
+              length = int(self.headers['Content-Length'])
+              data = json.loads(self.rfile.read(length))
+              print(f'🚨 ALERT: {data.get(\"alert_title\", \"Unknown\")}')
+              print(f'   Level: {data.get(\"risk_level\", \"?\")} ({data.get(\"risk_label\", \"?\")})')
+              print(f'   Message: {data.get(\"alert_summary\", \"\")}')
+              print('-' * 60)
+              self.send_response(200)
+              self.end_headers()
+          def log_message(self, *args): pass
+
+      print('Webhook receiver listening on :9999')
+      HTTPServer(('0.0.0.0', 9999), Handler).serve_forever()
+      "
+    ports:
+      - "9999:9999"
+    restart: unless-stopped
+    networks:
+      - logging
+
+volumes:
+  es_data:
+
+networks:
+  logging:
+    driver: bridge

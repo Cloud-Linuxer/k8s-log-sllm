@@ -1,19 +1,17 @@
 """FastAPI server for log risk scoring."""
 
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, BackgroundTasks
 from pydantic import BaseModel, Field
 
 from src.inference import LogRiskPredictor
 from src.preprocessing import LogPreprocessor
 from src.model import InferenceConfig
-
-
-# Global instances
-predictor: Optional[LogRiskPredictor] = None
-preprocessor: Optional[LogPreprocessor] = None
+from src.api.alerter import LogAlerter, create_alerter_from_env
 
 
 class LogRequest(BaseModel):
@@ -72,17 +70,27 @@ def create_app(
     tokenizer_path: str = "models/v2/tokenizer",
     num_threads: int = 4,
     lazy_load: bool = False,
+    enable_alerting: bool = True,
 ) -> FastAPI:
     """Create FastAPI application."""
     # App-local state to avoid global variable issues
-    state = {"predictor": None, "preprocessor": None}
+    state = {"predictor": None, "preprocessor": None, "alerter": None}
+    executor = ThreadPoolExecutor(max_workers=2)
 
     def get_predictor():
         if state["predictor"] is None:
             config = InferenceConfig(num_threads=num_threads)
             state["predictor"] = LogRiskPredictor(model_path, tokenizer_path, config)
             state["preprocessor"] = LogPreprocessor()
+            if enable_alerting:
+                state["alerter"] = create_alerter_from_env()
         return state["predictor"], state["preprocessor"]
+
+    def send_alert_background(log: str, risk_label: int, risk_score: float, level: str):
+        """Send alert in background thread."""
+        alerter = state.get("alerter")
+        if alerter and alerter.should_alert(risk_label):
+            alerter.send_alert(log, risk_label, risk_score, level)
 
     @asynccontextmanager
     async def lifespan(app: FastAPI):
@@ -112,7 +120,7 @@ def create_app(
         )
 
     @app.post("/predict", response_model=LogResponse)
-    async def predict_single(request: LogRequest):
+    async def predict_single(request: LogRequest, background_tasks: BackgroundTasks):
         """Score a single log message."""
         predictor, preprocessor = get_predictor()
 
@@ -123,14 +131,24 @@ def create_app(
 
         result = predictor.predict_single(text)
 
+        risk_label = result["risk_label"]
+        risk_score = result.get("risk_score", float(risk_label))
+        level = get_risk_level_name(risk_label)
+
+        # Send alert in background if high risk
+        if state.get("alerter"):
+            background_tasks.add_task(
+                send_alert_background, request.log, risk_label, risk_score, level
+            )
+
         return LogResponse(
-            risk_label=result["risk_label"],
-            risk_score=result.get("risk_score", float(result["risk_label"])),
-            level=get_risk_level_name(result["risk_label"]),
+            risk_label=risk_label,
+            risk_score=risk_score,
+            level=level,
         )
 
     @app.post("/predict/batch", response_model=BatchLogResponse)
-    async def predict_batch(request: BatchLogRequest):
+    async def predict_batch(request: BatchLogRequest, background_tasks: BackgroundTasks):
         """Score multiple log messages."""
         predictor, preprocessor = get_predictor()
 
@@ -143,14 +161,23 @@ def create_app(
 
         results = predictor.predict(texts)
 
-        responses = [
-            LogResponse(
-                risk_label=r["risk_label"],
-                risk_score=r.get("risk_score", float(r["risk_label"])),
-                level=get_risk_level_name(r["risk_label"]),
-            )
-            for r in results
-        ]
+        responses = []
+        for i, r in enumerate(results):
+            risk_label = r["risk_label"]
+            risk_score = r.get("risk_score", float(risk_label))
+            level = get_risk_level_name(risk_label)
+
+            # Send alert in background if high risk
+            if state.get("alerter") and risk_label >= 7:
+                background_tasks.add_task(
+                    send_alert_background, request.logs[i], risk_label, risk_score, level
+                )
+
+            responses.append(LogResponse(
+                risk_label=risk_label,
+                risk_score=risk_score,
+                level=level,
+            ))
 
         return BatchLogResponse(results=responses, count=len(responses))
 
