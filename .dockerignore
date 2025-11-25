@@ -1,0 +1,41 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info
+.eggs
+dist
+build
+.pytest_cache
+
+# Data (too large)
+data/raw/large_logs.txt
+data/processed/
+data/splits/
+
+# Dev files
+.env
+.venv
+venv
+*.md
+!README.md
+docs/
+tests/
+PLAN.md
+CLAUDE.md
+
+# IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Model checkpoints (keep only ONNX)
+models/*/*.pt
+models/v1/
