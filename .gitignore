@@ -1,0 +1,39 @@
+# Data files (too large)
+data/large_logs.txt
+data/large_logs.labeled.csv
+data/*.csv
+
+# Model files (too large)
+models/*/model.onnx
+models/*/*.pt
+models/*/tokenizer/
+
+# Keep structure
+!models/*/.gitkeep
+!data/.gitkeep
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Env
+.env
+.venv/
+venv/

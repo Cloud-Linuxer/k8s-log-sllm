@@ -1,0 +1,41 @@
+2024-01-15T10:30:45.123Z INFO kubelet Successfully pulled image nginx:latest
+2024-01-15T10:30:46.456Z ERROR kubelet Failed to create pod sandbox: context deadline exceeded
+2024-01-15T10:30:47.789Z WARNING kube-apiserver Node node-1 is NotReady
+2024-01-15T10:30:48.012Z INFO systemd Started Daily apt download activities.
+2024-01-15T10:30:49.345Z ERROR nginx upstream timed out (110: Connection timed out) while reading response header from upstream
+2024-01-15T10:30:50.678Z CRITICAL kernel kernel panic - not syncing: VFS: Unable to mount root fs
+2024-01-15T10:30:51.901Z DEBUG docker Container abc123def456789 started successfully
+2024-01-15T10:30:52.234Z ERROR kubelet Back-off restarting failed container
+2024-01-15T10:30:53.567Z WARNING sshd authentication failed for user root from 192.168.1.100
+2024-01-15T10:30:54.890Z INFO nginx GET /health HTTP/1.1 200 0.001
+Jan 15 10:30:55 server1 systemd[1]: Started nginx.service
+Jan 15 10:30:56 server1 kernel: segfault at 0000000000000000 ip 00007f1234567890
+2024-01-15T10:30:57.123Z ERROR kube-scheduler ImagePullBackOff for pod nginx-deployment-abc123
+2024-01-15T10:30:58.456Z FATAL application OOMKilled: container exceeded memory limit
+2024-01-15T10:30:59.789Z WARNING docker container exited with code 137
+2024-01-15T10:31:00.012Z ERROR nginx connection refused while connecting to upstream
+2024-01-15T10:31:01.345Z INFO kubelet Pod default/nginx-pod scheduled successfully
+2024-01-15T10:31:02.678Z ERROR etcd request cluster ID mismatch
+2024-01-15T10:31:03.901Z ALERT prometheus disk pressure detected on node-2
+2024-01-15T10:31:04.234Z DEBUG application Processing request for user abc12345-def6-7890-abcd-ef1234567890
+2024-01-15T10:31:05.567Z ERROR mysql deadlock found when trying to get lock
+2024-01-15T10:31:06.890Z WARNING redis connection pool exhausted, waiting for available connection
+2024-01-15T10:31:07.123Z INFO docker Pulling image gcr.io/project/app:v1.2.3
+2024-01-15T10:31:08.456Z ERROR kubernetes liveness probe failed: connection refused
+2024-01-15T10:31:09.789Z PANIC application unrecoverable error: stack trace follows
+2024-01-15T10:31:10.012Z WARNING nginx no live upstreams while connecting to upstream
+2024-01-15T10:31:11.345Z ERROR sshd permission denied for user admin
+2024-01-15T10:31:12.678Z INFO cron Started scheduled job cleanup
+2024-01-15T10:31:13.901Z ERROR docker failed to start container: OCI runtime error
+2024-01-15T10:31:14.234Z WARNING kubelet Evicted pod due to node memory pressure
+2024-01-15T10:31:15.567Z DEBUG nginx client 10.0.0.1 connected
+2024-01-15T10:31:16.890Z ERROR postgres FATAL: too many connections for role "app_user"
+2024-01-15T10:31:17.123Z CRITICAL kernel BUG: unable to handle kernel paging request
+2024-01-15T10:31:18.456Z INFO systemd Finished System Cleanup
+2024-01-15T10:31:19.789Z ERROR application unauthorized access to /admin endpoint
+2024-01-15T10:31:20.012Z WARNING kubernetes readiness probe failed for container app
+2024-01-15T10:31:21.345Z INFO docker Successfully tagged app:latest
+2024-01-15T10:31:22.678Z ERROR nginx SSL certificate error: certificate has expired
+2024-01-15T10:31:23.901Z TRACE application Entering function processRequest
+2024-01-15T10:31:24.234Z ERROR dns name resolution failed for service.namespace.svc.cluster.local
+2024-01-15T10:31:25.567Z INFO kubelet Container runtime version: containerd://1.6.0
