@@ -1,0 +1,85 @@
+{
+  "model_path": "models/v2/model.onnx",
+  "timestamp": "2025-11-25 12:20:55",
+  "system": {
+    "cpu_count": 32,
+    "platform": "linux"
+  },
+  "memory": {
+    "baseline_mb": 29.8,
+    "model_loaded_mb": 875.6,
+    "model_size_mb": 845.8,
+    "onnx_file_mb": 42.6,
+    "peak_mb": 1005.2
+  },
+  "latency": {
+    "single": {
+      "mean_ms": 3.56,
+      "std_ms": 0.029,
+      "p50_ms": 3.552,
+      "p95_ms": 3.596,
+      "p99_ms": 3.719,
+      "min_ms": 3.537,
+      "max_ms": 3.784
+    },
+    "batch": {
+      "1": {
+        "mean_ms": 3.55,
+        "per_log_ms": 3.555
+      },
+      "4": {
+        "mean_ms": 14.05,
+        "per_log_ms": 3.513
+      },
+      "8": {
+        "mean_ms": 28.29,
+        "per_log_ms": 3.536
+      },
+      "16": {
+        "mean_ms": 56.88,
+        "per_log_ms": 3.555
+      },
+      "32": {
+        "mean_ms": 118.37,
+        "per_log_ms": 3.699
+      },
+      "64": {
+        "mean_ms": 255.66,
+        "per_log_ms": 3.995
+      },
+      "128": {
+        "mean_ms": 550.13,
+        "per_log_ms": 4.298
+      }
+    }
+  },
+  "throughput": {
+    "batch": {
+      "1": 281.3,
+      "4": 284.7,
+      "8": 282.8,
+      "16": 281.3,
+      "32": 270.3,
+      "64": 250.3,
+      "128": 232.7
+    }
+  },
+  "scaling": {
+    "1": {
+      "latency_ms": 118.61,
+      "throughput": 269.8
+    },
+    "2": {
+      "latency_ms": 63.41,
+      "throughput": 504.7
+    },
+    "4": {
+      "latency_ms": 37.41,
+      "throughput": 855.4
+    },
+    "8": {
+      "latency_ms": 23.34,
+      "throughput": 1370.8
+    }
+  }
+}
